@@ -6,7 +6,7 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView, UpdateView, DeleteView, ListView
 from social_network.forms import RegistrationForm, CommentsForm, UpdateForm
 from social_network.models import Profile, User, Message
@@ -95,12 +95,14 @@ def page_with_message(request, pk):
 
 @login_required
 def update_page(request, pk):
+    user = get_object_or_404(get_user_model(), pk=pk)
+
     if pk == request.user.pk:
         if request.method == 'POST':
             form = UpdateForm(request.POST, request.FILES)
             if form.is_valid():
                 cd = form.cleaned_data
-                user = get_user_model().objects.get(pk=pk)
+
                 user.first_name = cd['first_name']
                 user.last_name = cd['last_name']
                 if cd['image']:
@@ -108,21 +110,23 @@ def update_page(request, pk):
 
                 user.save()
 
-                profile = Profile.objects.get(pk=pk)
+                profile = get_object_or_404(Profile, pk=pk)
                 profile.status = cd['status']
                 profile.date_birth = cd['date_birth']
                 profile.about = cd['about']
 
                 profile.save()
 
-                return redirect(reverse_lazy('main:profile', kwargs={'pk': pk}))
+                return redirect(reverse('main:profile', kwargs={'pk': pk}))
         else:
-            stub = get_user_model().objects.get(pk=pk).first_name
-            stub2 = get_user_model().objects.get(pk=pk).last_name
-            stub3 = get_user_model().objects.get(pk=pk).image
-            stub4 = Profile.objects.get(pk=pk).status
-            stub5 = Profile.objects.get(pk=pk).date_birth
-            stub6 = Profile.objects.get(pk=pk).about
+            stub = user.first_name
+            stub2 = user.last_name
+            stub3 = user.image
+
+            profile = get_object_or_404(Profile, pk=pk)
+            stub4 = profile.status
+            stub5 = profile.date_birth
+            stub6 = profile.about
 
             dict1 = {
                 'first_name': stub,
@@ -162,6 +166,10 @@ class EditComment(LoginRequiredMixin, UpdateView):
     model = Message
     form_class = CommentsForm
     template_name = 'social_network/edit.html'
+
+    def __init__(self, **kwargs):
+        super().__init__(kwargs)
+        self.return_key = None
 
     def dispatch(self, request, *args, **kwargs):
         self.return_key = request.GET.get('return_key')
